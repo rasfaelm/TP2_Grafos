@@ -902,3 +902,228 @@ void coberturaMinima(const Grafo *grafo){
     free(cobGulosa);
     free(cobHeuristica);
 }
+
+int existeAresta(Grafo *grafo, int u, int v) {
+    return grafo->matriz[u][v] != 0;
+}
+
+void removerAresta(Grafo *grafo, int u, int v) {
+
+    if (grafo->matriz[u][v] != 0) {
+
+        grafo->matriz[u][v] = 0;
+        grafo->matriz[v][u] = 0;
+
+        grafo->tamanho--;
+    }
+}
+
+int* HierHolzer(Grafo *grafo, int inicio, int *tamCircuito) {
+
+    int *pilha = malloc((grafo->tamanho + 1) * sizeof(int));
+    int *circuito = malloc((grafo->tamanho + 1) * sizeof(int));
+
+    int topo = -1;
+    int fim = 0;
+
+    // Começa pelo vértice inicial
+    pilha[++topo] = inicio;
+
+    while (topo >= 0) {
+
+        int v = pilha[topo];
+        int w = -1;
+
+        // Procura uma aresta ainda não utilizada
+        for (int i = 0; i < grafo->ordem; i++) {
+            if (existeAresta(grafo, v, i)) {
+                w = i;
+                break;
+            }
+        }
+
+        if (w != -1) {
+
+            // Remove a aresta utilizada
+            removerAresta(grafo, v, w);
+
+            // Continua o percurso
+            pilha[++topo] = w;
+
+        } else {
+
+            // Não existem mais arestas disponíveis em v
+            circuito[fim++] = v;
+
+            topo--;
+        }
+    }
+
+    // O circuito é construído na ordem inversa
+    for (int i = 0; i < fim / 2; i++) {
+        int aux = circuito[i];
+        circuito[i] = circuito[fim - 1 - i];
+        circuito[fim - 1 - i] = aux;
+    }
+
+    free(pilha);
+
+    *tamCircuito = fim;
+
+    return circuito;
+}
+
+void DFS(Grafo *grafo, int v, int *visitado) {
+
+    visitado[v] = 1;
+
+    for (int i = 0; i < grafo->ordem; i++) {
+
+        if (existeAresta(grafo, v, i) && !visitado[i]) {
+            DFS(grafo, i, visitado);
+        }
+    }
+}
+
+int ehPonte(Grafo *grafo, int u, int v) {
+
+    if (obterGrau(grafo, u) == 1) {
+        return 0;
+    }
+
+    int *visitado = calloc(grafo->ordem, sizeof(int));
+
+    // Guarda o peso original
+    double peso = grafo->matriz[u][v];
+
+    // Remove temporariamente a aresta
+    removerAresta(grafo, u, v);
+
+    // Verifica a conectividade
+    DFS(grafo, u, visitado);
+
+    int ponte = !visitado[v];
+
+    // Restaura a aresta com seu peso original
+    grafo->matriz[u][v] = peso;
+    grafo->matriz[v][u] = peso;
+
+    grafo->tamanho++;
+
+    free(visitado);
+
+    return ponte;
+}
+
+int* Fleury(Grafo *grafo, int inicio, int *tamCircuito) {
+
+    int *circuito = malloc((grafo->tamanho + 1) * sizeof(int));
+
+    int atual = inicio;
+    int fim = 0;
+
+    circuito[fim++] = atual;
+
+    while (grafo->tamanho > 0) {
+
+        int proximo = -1;
+
+        // Procura uma aresta que não seja ponte
+        for (int i = 0; i < grafo->ordem; i++) {
+
+            if (existeAresta(grafo, atual, i)) {
+
+                if (!ehPonte(grafo, atual, i)) {
+                    proximo = i;
+                    break;
+                }
+
+                // Guarda uma ponte como alternativa
+                if (proximo == -1) {
+                    proximo = i;
+                }
+            }
+        }
+
+        // Percorre e remove a aresta escolhida
+        removerAresta(grafo, atual, proximo);
+
+        atual = proximo;
+
+        // Adiciona o novo vértice ao circuito
+        circuito[fim++] = atual;
+    }
+
+    *tamCircuito = fim;
+
+    return circuito;
+}
+
+int possuiCircuitoEuleriano(Grafo *grafo) {
+
+    int inicio = -1;
+
+    // Verifica se todos os vértices possuem grau par
+    for (int i = 0; i < grafo->ordem; i++) {
+
+        int grau = obterGrau(grafo, i);
+
+        if (grau % 2 != 0) {
+            return 0;
+        }
+
+        // Encontra o primeiro vértice com arestas
+        if (grau > 0 && inicio == -1) {
+            inicio = i;
+        }
+    }
+
+    // Grafo sem arestas: circuito trivial
+    if (inicio == -1) {
+        return 1;
+    }
+
+    // Verifica se todos os vértices com arestas
+    // pertencem à mesma componente conexa
+    int *visitado = calloc(grafo->ordem, sizeof(int));
+
+    DFS(grafo, inicio, visitado);
+
+    for (int i = 0; i < grafo->ordem; i++) {
+
+        if (obterGrau(grafo, i) > 0 && !visitado[i]) {
+
+            free(visitado);
+            return 0;
+        }
+    }
+
+    free(visitado);
+
+    return 1;
+}
+
+Grafo* copiarGrafo(Grafo *original) {
+
+    Grafo *copia = malloc(sizeof(Grafo));
+
+    copia->ordem = original->ordem;
+    copia->tamanho = original->tamanho;
+
+    copia->matriz = malloc(
+        copia->ordem * sizeof(double *)
+    );
+
+    for (int i = 0; i < copia->ordem; i++) {
+
+        copia->matriz[i] = malloc(
+            copia->ordem * sizeof(double)
+        );
+
+        for (int j = 0; j < copia->ordem; j++) {
+            copia->matriz[i][j] = original->matriz[i][j];
+        }
+    }
+
+    return copia;
+}

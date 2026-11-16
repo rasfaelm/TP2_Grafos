@@ -7,6 +7,17 @@ typedef struct {
     double **matriz;    // Matriz de adjacência/pesos
 } Grafo;
 
+void removerAresta(Grafo *grafo, int u, int v);
+int existeAresta(Grafo *grafo, int u, int v);
+void DFS(Grafo *grafo, int v, int *visitado);
+int ehPonte(Grafo *grafo, int u, int v);
+int escolherInicio(Grafo *grafo);
+int possuiCircuitoEuleriano(Grafo *grafo);
+Grafo* copiarGrafo(Grafo *original);
+
+int* HierHolzer(Grafo *grafo, int inicio, int *tamCircuito);
+int* Fleury(Grafo *grafo, int inicio, int *tamCircuito);
+
 /* Criação e destruição */
 Grafo *criarGrafo(int ordem);
 void liberarGrafo(Grafo *grafo);
