@@ -13,6 +13,7 @@ void DFS(Grafo *grafo, int v, int *visitado);
 int ehPonte(Grafo *grafo, int u, int v);
 int escolherInicio(Grafo *grafo);
 int possuiCircuitoEuleriano(Grafo *grafo);
+void imprimirCircuitoEuleriano(Grafo *grafo);
 Grafo* copiarGrafo(Grafo *original);
 
 int* HierHolzer(Grafo *grafo, int inicio, int *tamCircuito);

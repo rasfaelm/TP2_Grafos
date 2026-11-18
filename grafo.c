@@ -987,7 +987,7 @@ void DFS(Grafo *grafo, int v, int *visitado) {
 
 int ehPonte(Grafo *grafo, int u, int v) {
 
-    if (obterGrau(grafo, u) == 1) {
+    if (obterGrau(grafo, u + 1) == 1) {
         return 0;
     }
 
@@ -1059,14 +1059,27 @@ int* Fleury(Grafo *grafo, int inicio, int *tamCircuito) {
     return circuito;
 }
 
+int escolherInicio(Grafo *grafo) {
+
+    // Primeiro vértice (0-based) que possui alguma aresta
+    for (int i = 0; i < grafo->ordem; i++) {
+        if (obterGrau(grafo, i + 1) > 0) {
+            return i;
+        }
+    }
+
+    return 0;
+}
+
 int possuiCircuitoEuleriano(Grafo *grafo) {
 
     int inicio = -1;
 
     // Verifica se todos os vértices possuem grau par
+    // (obterGrau recebe o vértice 1-based)
     for (int i = 0; i < grafo->ordem; i++) {
 
-        int grau = obterGrau(grafo, i);
+        int grau = obterGrau(grafo, i + 1);
 
         if (grau % 2 != 0) {
             return 0;
@@ -1087,11 +1100,15 @@ int possuiCircuitoEuleriano(Grafo *grafo) {
     // pertencem à mesma componente conexa
     int *visitado = calloc(grafo->ordem, sizeof(int));
 
+    if (visitado == NULL) {
+        return 0;
+    }
+
     DFS(grafo, inicio, visitado);
 
     for (int i = 0; i < grafo->ordem; i++) {
 
-        if (obterGrau(grafo, i) > 0 && !visitado[i]) {
+        if (obterGrau(grafo, i + 1) > 0 && !visitado[i]) {
 
             free(visitado);
             return 0;
@@ -1101,6 +1118,57 @@ int possuiCircuitoEuleriano(Grafo *grafo) {
     free(visitado);
 
     return 1;
+}
+
+/* Imprime um circuito (vértices internos 0-based, exibidos 1-based). */
+static void imprimirCircuito(const char *titulo, int *circuito, int tam) {
+
+    printf("\n[%s]\n", titulo);
+
+    for (int i = 0; i < tam; i++) {
+        printf("%d%s", circuito[i] + 1, i < tam - 1 ? " -> " : "\n");
+    }
+
+    printf("Arestas percorridas: %d\n", tam - 1);
+}
+
+/* Verifica se existe circuito Euleriano e, se existir,
+ * imprime o circuito obtido por Hierholzer e por Fleury. */
+void imprimirCircuitoEuleriano(Grafo *grafo) {
+
+    if (grafo == NULL) {
+        printf("Grafo invalido.\n");
+        return;
+    }
+
+    if (!possuiCircuitoEuleriano(grafo)) {
+        printf("O grafo NAO possui circuito Euleriano.\n");
+        return;
+    }
+
+    if (grafo->tamanho == 0) {
+        printf("O grafo nao possui arestas (circuito trivial).\n");
+        return;
+    }
+
+    int inicio = escolherInicio(grafo);
+
+    printf("O grafo possui circuito Euleriano (inicio no vertice %d).\n", inicio + 1);
+
+    // Os algoritmos removem arestas, então cada um usa sua própria cópia
+    Grafo *copiaH = copiarGrafo(grafo);
+    int tamH = 0;
+    int *circuitoH = HierHolzer(copiaH, inicio, &tamH);
+    imprimirCircuito("Hierholzer", circuitoH, tamH);
+    free(circuitoH);
+    liberarGrafo(copiaH);
+
+    Grafo *copiaF = copiarGrafo(grafo);
+    int tamF = 0;
+    int *circuitoF = Fleury(copiaF, inicio, &tamF);
+    imprimirCircuito("Fleury", circuitoF, tamF);
+    free(circuitoF);
+    liberarGrafo(copiaF);
 }
 
 Grafo* copiarGrafo(Grafo *original) {

@@ -16,6 +16,7 @@ void exibirMenu() {
     printf("8. Verificar se possui ciclo\n");
     printf("9. Caminhos minimos\n");
     printf("10. Cobertura minima de vertices (gulosa e heuristica)\n");
+    printf("11. Circuito Euleriano\n");
     printf("0. Sair\n");
     printf("========================================\n");
     printf("Opcao: ");
@@ -117,6 +118,10 @@ int main() {
             case 10:
                 printf("\n--- Cobertura minima de vertices ---\n");
                 coberturaMinima(grafo);
+                break;
+            case 11:
+                printf("\n--- Circuito Euleriano ---\n");
+                imprimirCircuitoEuleriano(grafo);
                 break;
             case 0:
                 printf("\nEncerrando programa...\n");
