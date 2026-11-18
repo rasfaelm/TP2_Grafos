@@ -17,6 +17,8 @@ void exibirMenu() {
     printf("9. Caminhos minimos\n");
     printf("10. Cobertura minima de vertices (gulosa e heuristica)\n");
     printf("11. Circuito Euleriano\n");
+    printf("12. Arvore geradora minima (Kruskal e Prim)\n");
+    printf("13. Metricas de distancia (excentricidade, raio e diametro)\n");
     printf("0. Sair\n");
     printf("========================================\n");
     printf("Opcao: ");
@@ -122,6 +124,14 @@ int main() {
             case 11:
                 printf("\n--- Circuito Euleriano ---\n");
                 imprimirCircuitoEuleriano(grafo);
+                break;
+            case 12:
+                printf("\n--- Arvore geradora minima ---\n");
+                arvoreGeradoraMinima(grafo);
+                break;
+            case 13:
+                printf("\n--- Metricas de distancia ---\n");
+                metricasDistancia(grafo);
                 break;
             case 0:
                 printf("\nEncerrando programa...\n");

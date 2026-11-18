@@ -57,4 +57,20 @@ int coberturaGulosa(const Grafo *grafo, int *cobertura);
 int coberturaHeuristica(const Grafo *grafo, int *cobertura);
 void coberturaMinima(const Grafo *grafo);
 
+/* Árvore geradora mínima */
+typedef struct {
+    int u, v;       // Extremidades (vértices de 0 a n-1)
+    double w;       // Peso
+} Aresta;
+
+int kruskal(int n, const Aresta *e, int m, Aresta *agm, double *custo);
+int prim(int n, const Aresta *e, int m, Aresta *agm, double *custo);
+void arvoreGeradoraMinima(const Grafo *grafo);
+
+/* Métricas */
+double excentricidade(double *G, int n, int inicio);
+double diametro(double *G, int n);
+double raio(double *G, int n);
+void metricasDistancia(const Grafo *grafo);
+
 #endif

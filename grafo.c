@@ -2,6 +2,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <float.h>
 
 /**
  * Cria um grafo com 'ordem' vértices.
@@ -1194,4 +1195,426 @@ Grafo* copiarGrafo(Grafo *original) {
     }
 
     return copia;
+}
+
+/*Union-Find */
+typedef struct {
+    int *pai, *rank;
+} UF;
+
+static int uf_init(UF *uf, int n) {
+    uf->pai = malloc(n * sizeof(int));
+    uf->rank = calloc(n, sizeof(int));
+    if (!uf->pai || !uf->rank) return -1;
+    for (int i = 0; i < n; i++) uf->pai[i] = i;
+    return 0;
+}
+
+static void uf_free(UF *uf) {
+    free(uf->pai);
+    free(uf->rank);
+}
+
+static int uf_find(UF *uf, int x) {
+    while (uf->pai[x] != x) {
+        uf->pai[x] = uf->pai[uf->pai[x]]; /* compressão de caminho */
+        x = uf->pai[x];
+    }
+    return x;
+}
+
+static int uf_union(UF *uf, int a, int b) {
+    int ra = uf_find(uf, a), rb = uf_find(uf, b);
+    if (ra == rb) return 0;
+    if (uf->rank[ra] < uf->rank[rb]) { int t = ra; ra = rb; rb = t; }
+    uf->pai[rb] = ra;
+    if (uf->rank[ra] == uf->rank[rb]) uf->rank[ra]++;
+    return 1;
+}
+
+/*Kruskal */
+static int cmp_aresta(const void *a, const void *b) {
+    double wa = ((const Aresta *)a)->w, wb = ((const Aresta *)b)->w;
+    return (wa > wb) - (wa < wb);
+}
+
+int kruskal(int n, const Aresta *e, int m, Aresta *agm, double *custo) {
+    Aresta *ord = malloc((m > 0 ? m : 1) * sizeof(Aresta));
+    UF uf;
+    if (!ord) return -1;
+    if (uf_init(&uf, n) != 0) { uf_free(&uf); free(ord); return -1; }
+    for (int i = 0; i < m; i++) ord[i] = e[i];
+    qsort(ord, m, sizeof(Aresta), cmp_aresta);
+
+    int k = 0;
+    *custo = 0.0;
+    for (int i = 0; i < m && k < n - 1; i++) {
+        if (ord[i].u != ord[i].v && uf_union(&uf, ord[i].u, ord[i].v)) {
+            agm[k++] = ord[i];
+            *custo += ord[i].w;
+        }
+    }
+    free(ord);
+    uf_free(&uf);
+    return (k == n - 1) ? k : -1;
+}
+
+/*Prim */
+typedef struct {
+    double w;
+    int u, v; /* u: vértice já na árvore, v: candidato */
+} Item;
+
+typedef struct {
+    Item *a;
+    int tam;
+} Heap;
+
+static void heap_push(Heap *h, Item it) {
+    int i = h->tam++;
+    while (i > 0) {
+        int p = (i - 1) / 2;
+        if (h->a[p].w <= it.w) break;
+        h->a[i] = h->a[p];
+        i = p;
+    }
+    h->a[i] = it;
+}
+
+static Item heap_pop(Heap *h) {
+    Item top = h->a[0], last = h->a[--h->tam];
+    int i = 0;
+    while (1) {
+        int f = 2 * i + 1;
+        if (f >= h->tam) break;
+        if (f + 1 < h->tam && h->a[f + 1].w < h->a[f].w) f++;
+        if (h->a[f].w >= last.w) break;
+        h->a[i] = h->a[f];
+        i = f;
+    }
+    if (h->tam > 0) h->a[i] = last;
+    return top;
+}
+
+int prim(int n, const Aresta *e, int m, Aresta *agm, double *custo) {
+    int *ini = calloc(n + 1, sizeof(int));
+    int *pos = malloc((n + 1) * sizeof(int));
+    int *viz = malloc((2 * m + 1) * sizeof(int));
+    double *pes = malloc((2 * m + 1) * sizeof(double));
+    char *vis = calloc(n > 0 ? n : 1, 1);
+    Heap h = { malloc((2 * m + 1) * sizeof(Item)), 0 };
+    int k = -1;
+
+    if (!ini || !pos || !viz || !pes || !vis || !h.a) goto fim;
+
+    /* adjacência em CSR */
+    for (int i = 0; i < m; i++) { ini[e[i].u + 1]++; ini[e[i].v + 1]++; }
+    for (int i = 0; i < n; i++) ini[i + 1] += ini[i];
+    for (int i = 0; i <= n; i++) pos[i] = ini[i];
+    for (int i = 0; i < m; i++) {
+        viz[pos[e[i].u]] = e[i].v; pes[pos[e[i].u]++] = e[i].w;
+        viz[pos[e[i].v]] = e[i].u; pes[pos[e[i].v]++] = e[i].w;
+    }
+
+    k = 0;
+    *custo = 0.0;
+    if (n > 0) {
+        vis[0] = 1;
+        for (int j = ini[0]; j < ini[1]; j++)
+            heap_push(&h, (Item){ pes[j], 0, viz[j] });
+    }
+    while (h.tam > 0 && k < n - 1) {
+        Item it = heap_pop(&h);
+        if (vis[it.v]) continue;
+        vis[it.v] = 1;
+        agm[k++] = (Aresta){ it.u, it.v, it.w };
+        *custo += it.w;
+        for (int j = ini[it.v]; j < ini[it.v + 1]; j++)
+            if (!vis[viz[j]])
+                heap_push(&h, (Item){ pes[j], it.v, viz[j] });
+    }
+    if (k != n - 1) k = -1;
+
+fim:
+    free(ini); free(pos); free(viz); free(pes); free(vis); free(h.a);
+    return k;
+}
+
+/* Imprime a AGM obtida por um algoritmo (vértices exibidos de 1 a n). */
+static void imprimirAGM(const char *titulo, const Aresta *agm, int k, double custo) {
+
+    printf("\n[%s]\n", titulo);
+
+    for (int i = 0; i < k; i++) {
+        printf("%d - %d (%g)\n", agm[i].u + 1, agm[i].v + 1, agm[i].w);
+    }
+
+    printf("Arestas: %d | Custo total: %.2f\n", k, custo);
+}
+
+/* Calcula e imprime a AGM por Kruskal e por Prim. */
+void arvoreGeradoraMinima(const Grafo *grafo) {
+
+    if (grafo == NULL || grafo->ordem < 1) {
+        printf("Grafo invalido.\n");
+        return;
+    }
+
+    int n = grafo->ordem;
+
+    if (contarComponentesConexas(grafo) != 1) {
+        printf("O grafo nao e conexo: a arvore geradora minima nao esta definida.\n");
+        return;
+    }
+
+    // Lista de arestas a partir da matriz (cada aresta uma vez, sem laços)
+    int m = 0;
+
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) {
+            if (grafo->matriz[i][j] != 0) {
+                m++;
+            }
+        }
+    }
+
+    Aresta *arestas = malloc((m > 0 ? m : 1) * sizeof(Aresta));
+    Aresta *agmK = malloc((n > 1 ? n - 1 : 1) * sizeof(Aresta));
+    Aresta *agmP = malloc((n > 1 ? n - 1 : 1) * sizeof(Aresta));
+
+    if (arestas == NULL || agmK == NULL || agmP == NULL) {
+        printf("Erro ao alocar memoria.\n");
+        free(arestas);
+        free(agmK);
+        free(agmP);
+        return;
+    }
+
+    int idx = 0;
+
+    for (int i = 0; i < n; i++) {
+        for (int j = i + 1; j < n; j++) {
+            if (grafo->matriz[i][j] != 0) {
+                arestas[idx].u = i;
+                arestas[idx].v = j;
+                arestas[idx].w = grafo->matriz[i][j];
+                idx++;
+            }
+        }
+    }
+
+    double custoK = 0.0, custoP = 0.0;
+    int kK = kruskal(n, arestas, m, agmK, &custoK);
+    int kP = prim(n, arestas, m, agmP, &custoP);
+
+    if (kK < 0 || kP < 0) {
+        printf("Erro ao calcular a arvore geradora minima.\n");
+    } else {
+        imprimirAGM("Kruskal", agmK, kK, custoK);
+        imprimirAGM("Prim", agmP, kP, custoP);
+
+        double dif = custoK - custoP;
+
+        if (dif < 0) {
+            dif = -dif;
+        }
+
+        printf("\nCustos iguais: %s\n", dif < 1e-6 ? "sim" : "nao");
+    }
+
+    free(arestas);
+    free(agmK);
+    free(agmP);
+}
+
+/*
+ * excentricidade, diametro e raio.
+ * G: matriz, n: quantidade de vértices, inicio: vértice (índice a partir de 0).
+ * Retornam DBL_MAX quando o grafo não é conexo.
+ */
+
+double excentricidade(double *G, int n, int inicio){
+    double *dist = malloc(n * sizeof(double));
+    int *marcado = calloc(n, sizeof(int));
+    int i, j, prox;
+    double maiorDist = 0;
+
+    if(dist == NULL || marcado == NULL){
+        free(dist);
+        free(marcado);
+        return DBL_MAX;
+    }
+    for(i = 0; i < n; i++)
+        dist[i] = DBL_MAX;
+
+    dist[inicio] = 0;
+
+    for(int k = 0; k < n; k++){
+        double menor = DBL_MAX;
+        prox = -1;
+
+        for(i = 0; i < n; i++){
+            if(!marcado[i] && dist[i] < menor){
+                menor = dist[i];
+                prox = i;
+            }
+        }
+        if(prox == -1)
+            break;
+
+        marcado[prox] = 1;
+
+        for(j = 0; j < n; j++){
+            if(!marcado[j] && G[prox*n+j] != DBL_MAX){
+                if(dist[prox] + G[prox*n+j] < dist[j])
+                    dist[j] = dist[prox] + G[prox*n+j];
+            }
+        }
+    }
+    for(i = 0; i < n; i++){
+        if(dist[i] == DBL_MAX){
+            maiorDist = DBL_MAX;
+            break;
+        }
+        if(dist[i] > maiorDist)
+            maiorDist = dist[i];
+    }
+    free(dist);
+    free(marcado);
+    return maiorDist;
+}
+
+double diametro(double *G, int n){
+    double maiorDist = 0, ex;
+
+    for(int i = 0; i < n; i++){
+        ex = excentricidade(G, n, i);
+        if(ex == DBL_MAX)
+            return DBL_MAX;
+        if(ex > maiorDist)
+            maiorDist = ex;
+    }
+
+    return maiorDist;
+}
+
+double raio(double *G, int n){
+    double menorDist = DBL_MAX, ex;
+
+    for(int i = 0; i < n; i++){
+        ex = excentricidade(G, n, i);
+        if(ex < menorDist)
+            menorDist = ex;
+    }
+    return menorDist;
+}
+
+/* Converte a matriz do Grafo (0 = sem aresta) para o formato de metrica:
+ * vetor linear com DBL_MAX onde não há aresta e 0 na diagonal. */
+static double *matrizParaVetor(const Grafo *grafo) {
+
+    int n = grafo->ordem;
+    double *G = malloc((size_t)n * n * sizeof(double));
+
+    if (G == NULL) {
+        return NULL;
+    }
+
+    for (int i = 0; i < n; i++) {
+        for (int j = 0; j < n; j++) {
+            if (i == j) {
+                G[i * n + j] = 0.0;
+            } else if (grafo->matriz[i][j] != 0) {
+                G[i * n + j] = grafo->matriz[i][j];
+            } else {
+                G[i * n + j] = DBL_MAX;
+            }
+        }
+    }
+
+    return G;
+}
+
+/* Compara duas distâncias com tolerância (somas em ordens diferentes
+ * podem diferir por erro de arredondamento). */
+static int distanciasIguais(double a, double b) {
+
+    double dif = a - b;
+
+    if (dif < 0) {
+        dif = -dif;
+    }
+
+    double escala = a < 0 ? -a : a;
+
+    return dif <= 1e-9 * (escala > 1.0 ? escala : 1.0);
+}
+
+/* Imprime a excentricidade de cada vértice, o raio (com o centro)
+ * e o diâmetro (com os vértices periféricos). */
+void metricasDistancia(const Grafo *grafo) {
+
+    if (grafo == NULL || grafo->ordem < 1) {
+        printf("Grafo invalido.\n");
+        return;
+    }
+
+    int n = grafo->ordem;
+
+    if (contarComponentesConexas(grafo) != 1) {
+        printf("O grafo nao e conexo: excentricidade, raio e diametro nao estao definidos.\n");
+        return;
+    }
+
+    double *G = matrizParaVetor(grafo);
+    double *ecc = malloc(n * sizeof(double));
+
+    if (G == NULL || ecc == NULL) {
+        printf("Erro ao alocar memoria.\n");
+        free(G);
+        free(ecc);
+        return;
+    }
+
+    // Calcula a excentricidade de cada vértice uma única vez
+    double menor = DBL_MAX, maior = 0.0;
+
+    for (int i = 0; i < n; i++) {
+        ecc[i] = excentricidade(G, n, i);
+
+        if (ecc[i] < menor) {
+            menor = ecc[i];
+        }
+
+        if (ecc[i] > maior) {
+            maior = ecc[i];
+        }
+    }
+
+    printf("\nExcentricidade de cada vertice:\n");
+
+    for (int i = 0; i < n; i++) {
+        printf("Vertice %d: %.2f\n", i + 1, ecc[i]);
+    }
+
+    printf("\nRaio: %.2f\nCentro (vertices de menor excentricidade):", menor);
+
+    for (int i = 0; i < n; i++) {
+        if (distanciasIguais(ecc[i], menor)) {
+            printf(" %d", i + 1);
+        }
+    }
+
+    printf("\n\nDiametro: %.2f\nPeriferia (vertices de maior excentricidade):", maior);
+
+    for (int i = 0; i < n; i++) {
+        if (distanciasIguais(ecc[i], maior)) {
+            printf(" %d", i + 1);
+        }
+    }
+
+    printf("\n");
+
+    free(G);
+    free(ecc);
 }
